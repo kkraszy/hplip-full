@@ -13,6 +13,7 @@ PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
 PKG_SOURCE_URL:=@SF/hplip
 PKG_HASH:=cc3360d3d913684fb080db97a434b04be45e2cef23cc5bc4cbc5f64b0c5e7bca
 
+
 PKG_MAINTAINER:=Luiz Angelo Daros de Luca <luizluca@gmail.com>
 PKG_LICENSE:=GPL-2.0 GPL-2.0-or-later
 PKG_LICENSE_FILES:=COPYING LICENSE
@@ -34,13 +35,13 @@ define Package/hplip/Default/description
 	HPLIP is an HP developed solution for printing, scanning, and faxing with HP inkjet and laser based printers in Linux.
 endef
 
-define Package/hplip-common
+define Package/hplip
 $(call Package/hplip/Default)
   TITLE+= (common files)
   DEPENDS+=+libusb-1.0
 endef
 
-define Package/hplip-common/description
+define Package/hplip/description
 $(call Package/hplip/Default/description)
 
 These are common files shared between subpackages
@@ -49,7 +50,7 @@ endef
 define Package/hplip-sane
 $(call Package/hplip/Default)
   TITLE+= (scanner drivers)
-  DEPENDS+=+libsane +hplip-common
+  DEPENDS+=+libsane +hplip
 endef
 
 define Package/hplip-sane/description
@@ -78,7 +79,7 @@ define Build/Install
 		$(PKG_INSTALL_DIR)/usr/share/sane/03f0-hplip.usbid
 endef
 
-define Package/hplip-common/install
+define Package/hplip/install
 	$(INSTALL_DIR) $(1)/usr/lib
 	$(CP) $(PKG_BUILD_DIR)/.libs/libhpip.so* $(1)/usr/lib/
 	$(CP) $(PKG_BUILD_DIR)/.libs/libhpmud.so* $(1)/usr/lib/
@@ -88,6 +89,18 @@ define Package/hplip-common/install
 
 	$(INSTALL_DIR) $(1)/usr/share/hplip/data/models/
 	$(CP) $(PKG_BUILD_DIR)/data/models/models.dat $(1)/usr/share/hplip/data/models/
+
+	$(INSTALL_DIR) $(1)/usr/lib
+	$(CP) $(PKG_INSTALL_DIR)/usr/lib/*.so* $(1)/usr/lib
+
+	$(INSTALL_DIR) $(1)/usr/lib/cups/backend
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/lib/cups/backend/hp $(1)/usr/lib/cups/backend
+
+	$(INSTALL_DIR) $(1)/usr/lib/cups/filter
+	$(INSTALL_BIN) $(PKG_INSTALL_DIR)/usr/lib/cups/filter/* $(1)/usr/lib/cups/filter
+
+	$(INSTALL_DIR) $(1)/usr/share/cups/drv/hp
+	$(CP) $(PKG_INSTALL_DIR)/usr/share/cups/drv/hp/hpcups.drv $(1)/usr/share/cups/drv/hp
 endef
 
 define Package/hplip-sane/install
@@ -102,7 +115,7 @@ define Package/hplip-sane/install
 		$(1)/usr/share/sane/03f0-hplip.usbid
 endef
 
-define Package/hplip-common/conffiles
+define Package/hplip/conffiles
 /etc/hp/hplip.conf
 endef
 
@@ -110,5 +123,5 @@ define Package/hplip-sane/conffiles
 /etc/sane.d/dll.d/hplib
 endef
 
-$(eval $(call BuildPackage,hplip-common))
+$(eval $(call BuildPackage,hplip))
 $(eval $(call BuildPackage,hplip-sane))
