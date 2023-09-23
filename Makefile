@@ -1,4 +1,7 @@
 #
+# Copyright (C) 2006-2010 OpenWrt.org
+# Copyright (C) 2016 Aaron Bulmahn
+#
 # This is free software, licensed under the GNU General Public License v2.
 # See /LICENSE for more information.
 #
@@ -10,54 +13,31 @@ PKG_VERSION:=3.21.6
 PKG_RELEASE:=2
 
 PKG_SOURCE:=$(PKG_NAME)-$(PKG_VERSION).tar.gz
-PKG_SOURCE_URL:=@SF/hplip
-PKG_HASH:=cc3360d3d913684fb080db97a434b04be45e2cef23cc5bc4cbc5f64b0c5e7bca
+PKG_SOURCE_URL:=@SF/$(PKG_NAME)
+PKG_MD5SUM:=3857eae76c49c00fa185628d4dce7d61
 
-
-PKG_MAINTAINER:=Luiz Angelo Daros de Luca <luizluca@gmail.com>
-PKG_LICENSE:=GPL-2.0 GPL-2.0-or-later
-PKG_LICENSE_FILES:=COPYING LICENSE
-
-PKG_BUILD_PARALLEL:=1
-PKG_BUILD_DEPENDS:=libcups
-PKG_FIXUP:=autoreconf
+PKG_BUILD_DEPENDS:=python
+PKG_FIXUP:=libtool
 
 include $(INCLUDE_DIR)/package.mk
+$(call include_mk, python-package.mk)
 
-define Package/hplip/Default
+define Package/hplip
   SECTION:=utils
   CATEGORY:=Utilities
   TITLE:=HP Linux Imaging and Printing
-  URL:=https://sourceforge.net/projects/hplip/
-endef
-
-define Package/hplip/Default/description
-	HPLIP is an HP developed solution for printing, scanning, and faxing with HP inkjet and laser based printers in Linux.
-endef
-
-define Package/hplip
-$(call Package/hplip/Default)
-  TITLE+= (common files)
-  DEPENDS+=+libusb-1.0
+  URL:=http://sourceforge.net/projects/hplip/
+  DEPENDS+=+libjpeg +libusb-1.0 +cups
 endef
 
 define Package/hplip/description
-$(call Package/hplip/Default/description)
-
-These are common files shared between subpackages
+	HPLIP is an HP developed solution for printing, scanning, and faxing with HP inkjet and laser based printers in Linux.
 endef
 
-define Package/hplip-sane
-$(call Package/hplip/Default)
-  TITLE+= (scanner drivers)
-  DEPENDS+=+libsane +hplip
+define Package/hplip/configfiles
+/etc/hp/hplip.conf
 endef
 
-define Package/hplip-sane/description
-$(call Package/hplip/Default/description)
-
-S.A.N.E backend for HP Scanners
-endef
 
 CONFIGURE_ARGS += \
 	--disable-gui-build \
@@ -65,30 +45,30 @@ CONFIGURE_ARGS += \
 	--disable-fax-build \
 	--disable-pp-build \
 	--disable-doc-build \
-	--disable-dbus-build \
-	--disable-hpijs-only-build \
-	--disable-hpcups-install \
-	--disable-hpps-install \
-	--disable-cups-drv-install \
-	--enable-lite-build
+	--disable-foomatic-xml-install \
+	--disable-dbus-build
 
-define Build/Install
-	mkdir -p $(PKG_INSTALL_DIR)/usr/share/sane
-	sed -n -e '/key="usb.product_id"/{s/.*int_outof="0x//;s/;0x/\n/g;s/".*//;p}' \
-		$(PKG_BUILD_DIR)/data/rules/20-hplip-devices.fdi | sort -u > \
-		$(PKG_INSTALL_DIR)/usr/share/sane/03f0-hplip.usbid
+define Build/Configure
+	$(call Build/Configure/Default,\
+		$(CONFIGURE_ARGS),\
+		ac_cv_lib_cups_cupsDoFileRequest=yes \
+		LIBS="-ljpeg -lusb-1.0" \
+	)
+endef
+
+define Build/Compile
+	$(MAKE) -C $(PKG_BUILD_DIR) \
+		$(TARGET_CONFIGURE_OPTS) \
+		DESTDIR="$(PKG_INSTALL_DIR)" \
+		all install
 endef
 
 define Package/hplip/install
-	$(INSTALL_DIR) $(1)/usr/lib
-	$(CP) $(PKG_BUILD_DIR)/.libs/libhpip.so* $(1)/usr/lib/
-	$(CP) $(PKG_BUILD_DIR)/.libs/libhpmud.so* $(1)/usr/lib/
-
 	$(INSTALL_DIR) $(1)/etc/hp
-	$(CP) $(PKG_BUILD_DIR)/hplip.conf $(1)/etc/hp/hplip.conf
+	$(CP) $(PKG_INSTALL_DIR)/etc/hp/hplip.conf $(1)/etc/hp/hplip.conf
 
-	$(INSTALL_DIR) $(1)/usr/share/hplip/data/models/
-	$(CP) $(PKG_BUILD_DIR)/data/models/models.dat $(1)/usr/share/hplip/data/models/
+	$(INSTALL_DIR) $(1)/usr/share/hplip/data/models
+	$(CP) $(PKG_INSTALL_DIR)/usr/share/hplip/data/models/models.dat $(1)/usr/share/hplip/data/models
 
 	$(INSTALL_DIR) $(1)/usr/lib
 	$(CP) $(PKG_INSTALL_DIR)/usr/lib/*.so* $(1)/usr/lib
@@ -103,25 +83,4 @@ define Package/hplip/install
 	$(CP) $(PKG_INSTALL_DIR)/usr/share/cups/drv/hp/hpcups.drv $(1)/usr/share/cups/drv/hp
 endef
 
-define Package/hplip-sane/install
-	$(INSTALL_DIR) $(1)/usr/lib/sane
-	$(CP) $(PKG_BUILD_DIR)/.libs/libsane-hpaio.so* $(1)/usr/lib/sane
-
-	$(INSTALL_DIR) $(1)/etc/sane.d/dll.d/
-	$(INSTALL_DATA) ./files/hplib.conf $(1)/etc/sane.d/dll.d/hplib
-
-	$(INSTALL_DIR) $(1)/usr/share/sane
-	$(INSTALL_DATA) $(PKG_INSTALL_DIR)/usr/share/sane/03f0-hplip.usbid \
-		$(1)/usr/share/sane/03f0-hplip.usbid
-endef
-
-define Package/hplip/conffiles
-/etc/hp/hplip.conf
-endef
-
-define Package/hplip-sane/conffiles
-/etc/sane.d/dll.d/hplib
-endef
-
 $(eval $(call BuildPackage,hplip))
-$(eval $(call BuildPackage,hplip-sane))
